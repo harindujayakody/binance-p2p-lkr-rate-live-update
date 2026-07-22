@@ -1,0 +1,43 @@
+{
+  "manifest_version": 3,
+  "name": "Binance P2P LKR Rate Live Update",
+  "version": "1.0.4",
+  "description": "Live Binance P2P LKR/USDT exchange rates, advertiser listings, calculator, & toolbar rate badge. Made with ❤️ by Infiax.",
+  "permissions": [
+    "storage",
+    "alarms",
+    "declarativeNetRequest",
+    "declarativeNetRequestWithHostAccess"
+  ],
+  "host_permissions": [
+    "*://*.binance.com/*"
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "binance_cors_rules",
+        "enabled": true,
+        "path": "rules.json"
+      }
+    ]
+  },
+  "action": {
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_popup": "popup.html",
+    "default_title": "Binance P2P LKR Rate Live Update"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}

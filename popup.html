@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Binance P2P LKR Rate Tracker</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="brand">
+        <img src="icons/icon32.png" alt="Infiax Logo" width="22" height="22" class="brand-img">
+        <div class="brand-text">
+          <h1>P2P LKR Rate Live</h1>
+          <span class="pair-tag">USDT / LKR</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="refresh-btn" class="icon-btn" title="Refresh Live Rates">
+          <svg class="spin-icon" viewBox="0 0 24 24" width="16" height="16">
+            <path fill="currentColor" d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Top Rate Summary Cards -->
+    <section class="summary-cards">
+      <div class="card buy-card">
+        <span class="card-label">Best Buy Rate</span>
+        <div class="price-container">
+          <span class="currency">Rs.</span>
+          <span id="buy-rate-val" class="price-val">--.--</span>
+        </div>
+        <span class="card-subtext">Buying USDT</span>
+      </div>
+
+      <div class="card sell-card">
+        <span class="card-label">Best Sell Rate</span>
+        <div class="price-container">
+          <span class="currency">Rs.</span>
+          <span id="sell-rate-val" class="price-val">--.--</span>
+        </div>
+        <span class="card-subtext">Selling USDT</span>
+      </div>
+
+      <div class="card spread-card">
+        <span class="card-label">Spread Margin</span>
+        <div class="price-container">
+          <span id="spread-val" class="price-val">--</span>
+        </div>
+        <span id="spread-percent-val" class="card-subtext">--%</span>
+      </div>
+    </section>
+
+    <!-- Filter & Tab Nav -->
+    <section class="controls-bar">
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="buy">
+          <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>
+          Buy
+        </button>
+        <button class="tab-btn" data-tab="sell">
+          <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+          Sell
+        </button>
+        <button class="tab-btn" data-tab="calculator">
+          <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="16" y1="14" x2="16" y2="14.01"></line><line x1="12" y1="14" x2="12" y2="14.01"></line><line x1="8" y1="14" x2="8" y2="14.01"></line><line x1="16" y1="18" x2="16" y2="18.01"></line><line x1="12" y1="18" x2="12" y2="18.01"></line><line x1="8" y1="18" x2="8" y2="18.01"></line></svg>
+          Calc
+        </button>
+        <button class="tab-btn" data-tab="history">
+          <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15 15"></polyline></svg>
+          History
+        </button>
+      </div>
+      <div class="filters-wrapper" id="filters-wrapper">
+        <div class="amount-filter-box" title="Order Limit Filter (Enter target LKR amount)">
+          <input type="number" id="trans-amount-input" placeholder="Limit (Rs.)" min="0" step="5000">
+        </div>
+        <div class="filter-dropdown" id="payment-filter-wrapper">
+          <select id="payment-select" title="Filter Payment Method">
+            <option value="">All Payments</option>
+            <option value="BANK">Bank Transfer</option>
+            <option value="CommercialBank">Commercial Bank</option>
+            <option value="SampathBank">Sampath Bank</option>
+            <option value="HNB">HNB</option>
+            <option value="BOC">Bank of Ceylon</option>
+            <option value="Payeer">Payeer</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Content Area -->
+    <main class="content-area">
+      <!-- Error Alert -->
+      <div id="error-banner" class="alert alert-error hidden">
+        <span id="error-msg">Failed to connect to Binance API.</span>
+        <button id="retry-btn">Retry</button>
+      </div>
+
+      <!-- Loading State -->
+      <div id="loading-spinner" class="loading-state">
+        <div class="spinner"></div>
+        <span>Fetching live rates...</span>
+      </div>
+
+      <!-- Ads Feed Table View -->
+      <div id="ads-view" class="view-panel">
+        <div class="ads-header-row">
+          <span>Advertiser</span>
+          <span>Price (LKR)</span>
+          <span>Limits</span>
+          <span>Payment</span>
+        </div>
+        <div id="ads-list" class="ads-list">
+          <!-- Dynamic ad rows rendered by popup.js -->
+        </div>
+      </div>
+
+      <!-- Rate Calculator View -->
+      <div id="calculator-view" class="view-panel hidden">
+        <div class="calc-card">
+          <div class="calc-header">
+            <h3>USDT ↔ LKR Converter</h3>
+            <div class="calc-mode-switch">
+              <button class="mode-chip active-buy" id="mode-buy-btn">Buy Rate</button>
+              <button class="mode-chip" id="mode-sell-btn">Sell Rate</button>
+            </div>
+          </div>
+
+          <!-- Order Limit Alert / Highlight Banner -->
+          <div id="calc-limit-notice" class="calc-limit-notice unset">
+            <span id="calc-limit-text">⚠️ Order Limit not set. Showing market average.</span>
+            <button id="set-limit-btn" class="set-limit-btn">Set Limit</button>
+          </div>
+          
+          <div class="calc-group">
+            <label for="calc-lkr">LKR Amount (Rs.)</label>
+            <div class="input-wrapper">
+              <input type="number" id="calc-lkr" placeholder="e.g. 100000" min="0">
+              <span class="unit">LKR</span>
+            </div>
+          </div>
+
+          <div class="swap-icon-container">
+            <button id="calc-swap-btn" class="swap-btn" title="Click to swap focus">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <path d="M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3L5 6.99h3V14h2V6.99h3L9 3z"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="calc-group">
+            <label for="calc-usdt">USDT Amount ($)</label>
+            <div class="input-wrapper">
+              <input type="number" id="calc-usdt" placeholder="e.g. 325" min="0">
+              <span class="unit">USDT</span>
+            </div>
+          </div>
+
+          <!-- Quick Preset LKR Pills -->
+          <div class="preset-row">
+            <span class="preset-label">Quick LKR:</span>
+            <div class="preset-pills">
+              <button class="pill-btn" data-lkr="25000">25K</button>
+              <button class="pill-btn" data-lkr="50000">50K</button>
+              <button class="pill-btn" data-lkr="100000">100K</button>
+              <button class="pill-btn" data-lkr="250000">250K</button>
+              <button class="pill-btn" data-lkr="500000">500K</button>
+            </div>
+          </div>
+
+          <!-- Large Visual Summary Card -->
+          <div class="calc-summary-box">
+            <div class="summary-header">
+              <span class="summary-label">YOU RECEIVE / TOTAL</span>
+              <span id="calc-mode-indicator" class="mode-badge buy">Buy Rate Applied</span>
+            </div>
+            <div class="summary-result">
+              <span id="calc-big-output" class="big-output-val">0.00 USDT</span>
+            </div>
+            <div class="summary-footer">
+              <span>Rate applied: <strong id="calc-rate-used">-- LKR/USDT</strong></span>
+              <span id="calc-equiv-val" class="sub-equiv">≈ Rs. 0.00</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 7D History View -->
+      <div id="history-view" class="view-panel hidden">
+        <div class="history-card">
+          <div class="history-header">
+            <h3>7-Day LKR Rate Trend</h3>
+            <span id="history-change-badge" class="change-badge pos">+0.00%</span>
+          </div>
+
+          <div class="history-stats-row">
+            <div class="h-stat">
+              <span class="h-label">7D High</span>
+              <span id="h-high-val" class="h-val">Rs. --</span>
+            </div>
+            <div class="h-stat">
+              <span class="h-label">7D Low</span>
+              <span id="h-low-val" class="h-val">Rs. --</span>
+            </div>
+            <div class="h-stat">
+              <span class="h-label">7D Avg</span>
+              <span id="h-avg-val" class="h-val">Rs. --</span>
+            </div>
+          </div>
+
+          <!-- Sparkline Chart Container -->
+          <div class="chart-container">
+            <div class="chart-legend">
+              <span class="legend-item"><span class="legend-dot green"></span> Buy Rate</span>
+              <span class="legend-item"><span class="legend-dot red"></span> Sell Rate</span>
+            </div>
+            <svg id="sparkline-svg" viewBox="0 0 360 70" preserveAspectRatio="none">
+              <!-- Rendered dynamically by popup.js -->
+            </svg>
+            <div id="chart-labels" class="chart-labels">
+              <!-- Date labels rendered by popup.js -->
+            </div>
+          </div>
+
+          <!-- 7-Day Table -->
+          <div class="history-table">
+            <div class="ht-header">
+              <span>Date</span>
+              <span>Best Buy</span>
+              <span>Best Sell</span>
+              <span>Spread</span>
+            </div>
+            <div id="history-rows" class="ht-rows">
+              <!-- Rendered by popup.js -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="footer-top">
+        <div class="status-indicator">
+          <span class="dot live"></span>
+          <span id="status-text">Binance Public API</span>
+        </div>
+        <div class="update-time">
+          <span id="updated-at">Updating...</span>
+        </div>
+        <a href="https://p2p.binance.com/en/trade/all-payments/USDT?fiat=LKR" target="_blank" class="external-link">
+          Open Binance ↗
+        </a>
+      </div>
+      <div class="footer-credits">
+        <span>Made with ❤️ by <a href="https://infiax.com" target="_blank" class="infiax-link">Infiax (Pvt) Ltd</a></span>
+      </div>
+    </footer>
+  </div>
+
+  <script src="binance-api.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

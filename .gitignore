@@ -1,0 +1,5 @@
+# Dependencies & temporary files
+*.zip
+_metadata/
+.DS_Store
+Thumbs.db
