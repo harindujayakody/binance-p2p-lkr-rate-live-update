@@ -23,7 +23,7 @@
 - 🎯 **User-Defined Order Limit Filter**: Enter your target LKR amount (e.g. `Rs. 50,000`) in the toolbar to filter ads and home summary rates specifically for your trade size.
 - 🧮 **Visual USDT ↔ LKR Converter**: Calculate converted USDT or LKR using live rates with **Buy Rate / Sell Rate** mode chips, 1-tap quick preset pills (`25K`, `50K`, `100K`, `250K`, `500K`), and order limit warning alerts.
 - 📊 **7-Day Trend Chart & History**: Interactive SVG sparkline graph with dual **Buy (Green)** and **Sell (Red)** trend curves, 7-day High/Low stats, and daily logs.
-- 🔔 **Chrome Toolbar Rate Badge**: Background service worker periodically updates the extension toolbar icon with the current best LKR rate every 2 minutes.
+- 🔔 **Chrome Toolbar Rate Badge**: Background service worker updates the extension toolbar icon with the current best LKR rate every 5 minutes (with exponential backoff up to 60 minutes on failures — see `background.js`).
 - 🎨 **Binance Dark Aesthetics**: Sleek, ultra-compact interface crafted with `Poppins` and `Inter` typography.
 
 ---
@@ -37,7 +37,7 @@
 ├── popup.html            # Main extension popup HTML markup
 ├── popup.js              # Interactive UI logic, tab switching, filters, & calculator math
 ├── styles.css            # Binance dark theme styling & typography
-├── rules.json            # DeclarativeNetRequest CORS header override rules
+├── rules.json            # Intentionally empty: the old CORS-stripping rule was removed (see issue #1)
 ├── privacy-policy.html   # Standalone Privacy Policy page
 └── icons/                # Extension icon assets (16x16, 32x32, 48x48, 128x128)
 ```

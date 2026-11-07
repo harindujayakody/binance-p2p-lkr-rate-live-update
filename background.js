@@ -5,12 +5,31 @@
 importScripts('binance-api.js');
 
 const ALARM_NAME = 'BINANCE_P2P_REFRESH_ALARM';
-const REFRESH_INTERVAL_MINUTES = 2;
+const REFRESH_INTERVAL_MINUTES = 5;      // base interval (was 2; see #2)
+const MAX_BACKOFF_MINUTES = 60;          // cap for exponential backoff
+const REQUEST_TIMEOUT_MS = 15000;
+
+// Schedule the next refresh. Failures back off exponentially
+// (5, 10, 20, 40, 60 min) with jitter, so a Binance outage or a 429
+// does not hammer an undocumented endpoint. Respects Retry-After.
+let consecutiveFailures = 0;
+function scheduleNextRefresh(retryAfterSeconds) {
+  let delay = REFRESH_INTERVAL_MINUTES;
+  if (consecutiveFailures > 0) {
+    delay = Math.min(REFRESH_INTERVAL_MINUTES * Math.pow(2, consecutiveFailures), MAX_BACKOFF_MINUTES);
+  }
+  if (retryAfterSeconds && retryAfterSeconds > 0) {
+    delay = Math.max(delay, Math.ceil(retryAfterSeconds / 60));
+  }
+  delay += Math.random() * 2; // jitter: avoid thundering-herd sync with other clients
+  chrome.alarms.create(ALARM_NAME, { delayInMinutes: delay });
+  console.log(`[Binance P2P Tracker] Next refresh in ~${delay.toFixed(1)} min (failures: ${consecutiveFailures}).`);
+}
 
 // Set up alarm on installation
 chrome.runtime.onInstalled.addListener(() => {
   console.log('[Binance P2P Tracker] Extension installed.');
-  chrome.alarms.create(ALARM_NAME, { periodInMinutes: REFRESH_INTERVAL_MINUTES });
+  scheduleNextRefresh();
   refreshP2PRates();
 });
 
@@ -38,12 +57,17 @@ async function refreshP2PRates() {
         cachedSummary: summary,
         lastFetchTime: Date.now()
       });
+      consecutiveFailures = 0;
     } else {
       chrome.action.setBadgeText({ text: 'ERR' });
       chrome.action.setBadgeBackgroundColor({ color: '#E53E3E' });
+      consecutiveFailures += 1;
     }
+    scheduleNextRefresh(summary && summary.retryAfterSeconds);
   } catch (err) {
     console.error('[Background Refresh Error]', err);
+    consecutiveFailures += 1;
+    scheduleNextRefresh(err && err.retryAfterSeconds);
   }
 }
 
