@@ -1,6 +1,14 @@
 /**
  * Binance P2P API Helper Service
- * Interacts directly with Binance's public P2P endpoints with multi-domain fallback.
+ * Interacts directly with Binance's P2P endpoints with multi-domain fallback.
+ *
+ * NOTE: /bapi/c2c/v2/friendly/c2c/adv/search is an UNDOCUMENTED internal
+ * endpoint (see #2). Binance may change, rate-limit, or block it at any
+ * time; there is no SLA. Callers must back off on failure (background.js
+ * does exponential backoff) and never treat this as a supported API.
+ * No CORS-stripping rules are used: the background service worker fetches
+ * with the extension's host permission, which does not need (and must not
+ * have) Access-Control-Allow-Origin overrides (see #1).
  */
 
 const BINANCE_ENDPOINTS = [
@@ -48,11 +56,14 @@ async function fetchP2PAds(options = {}) {
 
   // Try endpoints sequentially with fallback
   for (const url of BINANCE_ENDPOINTS) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
     try {
       const response = await fetch(url, {
         method: 'POST',
         mode: 'cors',
         credentials: 'omit',
+        signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
           'Accept': '*/*',
@@ -60,9 +71,16 @@ async function fetchP2PAds(options = {}) {
         },
         body: JSON.stringify(payload)
       });
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status} from ${url}`);
+        const err = new Error(`HTTP ${response.status} from ${url}`);
+        // Surface Retry-After so the caller can back off for at least that long.
+        const retryAfter = response.headers.get('Retry-After');
+        if (response.status === 429 && retryAfter) {
+          err.retryAfterSeconds = parseInt(retryAfter, 10) || null;
+        }
+        throw err;
       }
 
       const result = await response.json();
@@ -115,6 +133,10 @@ async function fetchP2PAds(options = {}) {
         timestamp: Date.now()
       };
     } catch (err) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        err = new Error(`Request to ${url} timed out after 15s`);
+      }
       console.warn(`[Binance P2P Endpoint Fallback] ${url} failed:`, err.message);
       lastError = err;
     }
@@ -123,7 +145,8 @@ async function fetchP2PAds(options = {}) {
   return {
     success: false,
     data: [],
-    error: lastError ? lastError.message : 'All Binance P2P endpoints failed to respond'
+    error: lastError ? lastError.message : 'All Binance P2P endpoints failed to respond',
+    retryAfterSeconds: lastError ? (lastError.retryAfterSeconds || null) : null
   };
 }
 
@@ -142,7 +165,8 @@ async function fetchP2PSummary(fiat = 'LKR', asset = 'USDT', transAmount = null)
   if (!buyRes.success && !sellRes.success) {
     return {
       success: false,
-      error: buyRes.error || sellRes.error || 'Network error fetching Binance P2P rates'
+      error: buyRes.error || sellRes.error || 'Network error fetching Binance P2P rates',
+      retryAfterSeconds: buyRes.retryAfterSeconds || sellRes.retryAfterSeconds || null
     };
   }
 
